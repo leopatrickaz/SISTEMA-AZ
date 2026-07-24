@@ -363,6 +363,34 @@ async function loadAll() {
   _vendas   = v || [];
 }
 
+// ── Atualização automática entre dispositivos ────────────────
+// Recarrega do banco ao voltar o foco / abrir a aba e a cada 15s, para
+// que empresas, produtos e vendas feitos em outro dispositivo apareçam
+// aqui sem precisar recarregar a página. Não atualiza enquanto um
+// cadastro (modal) estiver aberto, para não atrapalhar a edição.
+let _vendasRefreshTimer = null;
+
+function algumModalAberto() {
+  return !!document.querySelector('.overlay.open');
+}
+
+async function atualizarDados() {
+  if (algumModalAberto()) return;
+  if (document.visibilityState !== 'visible') return;
+  try {
+    await loadAll();
+    navigate(currentPage, currentEmpresaDetailId);
+  } catch (e) { /* silencioso: tenta de novo no próximo ciclo */ }
+}
+
+if (!_vendasRefreshTimer) {
+  _vendasRefreshTimer = setInterval(atualizarDados, 15000);
+}
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') atualizarDados();
+});
+window.addEventListener('focus', atualizarDados);
+
 // ── Navegação interna ────────────────────────────────────────
 function navigate(page, extraId) {
   currentPage = page;
