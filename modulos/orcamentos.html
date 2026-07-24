@@ -415,8 +415,8 @@ async function gerarOrcamentoPDF() {
   });
   if (!itens.length) { showToast('Adicione pelo menos um item', 'error'); return; }
 
-  // Numeração sequencial para controle (consumida só após gerar com sucesso)
-  const numero = proximoNumeroOrcamento();
+  // Numeração sequencial global (via banco), reservada agora e salva junto com o orçamento
+  const numero = await proximoNumeroOrcamento();
   const numeroFmt = formatarNumeroOrcamento(numero);
 
   let rows = '';
@@ -530,9 +530,7 @@ async function gerarOrcamentoPDF() {
     let binary = '';
     for (let i = 0; i < uint8.length; i++) binary += String.fromCharCode(uint8[i]);
     const pdfBase64 = btoa(binary);
-    salvarNoHistorico(cliente, dataFmt, pdfBase64, nomeArquivo, numeroFmt);
-    // Consome o número apenas agora, após o PDF ser gerado com sucesso
-    confirmarNumeroOrcamento(numero);
+    await salvarNoHistorico({ cliente, data: dataFmt, numero, obs, total, pdfBase64, nomeArquivo });
 
     // iOS Safari: usa Web Share API para compartilhar o arquivo direto, sem blob URL
     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
@@ -583,125 +581,99 @@ function navigateOrc(page) {
 }
 
 // ── Numeração sequencial (controle) ──────────────────────────
-const CONTADOR_KEY = 'az_orcamentos_contador';
-
-// Próximo número disponível (sem consumir o contador)
-function proximoNumeroOrcamento() {
-  let n = parseInt(localStorage.getItem(CONTADOR_KEY) || '0', 10);
-  if (isNaN(n)) n = 0;
-  return n + 1;
-}
-
 // Formata como 0001, 0025, etc.
 function formatarNumeroOrcamento(n) {
   return String(n).padStart(4, '0');
 }
 
-// Confirma/persiste o número somente após gerar o PDF com sucesso
-function confirmarNumeroOrcamento(n) {
-  try { localStorage.setItem(CONTADOR_KEY, String(n)); } catch (e) {}
-}
-
-// ── Histórico de orçamentos ──────────────────────────────────
-const HISTORICO_KEY = 'az_orcamentos_historico';
-
-function loadHistorico() {
-  try { return JSON.parse(localStorage.getItem(HISTORICO_KEY) || '[]'); }
-  catch { return []; }
-}
-
-function saveHistorico(lista) {
+// Próximo número = maior número já usado no banco + 1 (numeração global entre dispositivos)
+async function proximoNumeroOrcamento() {
   try {
-    localStorage.setItem(HISTORICO_KEY, JSON.stringify(lista));
-    return true;
+    const r = await AZ_DB.get(AZ_DB.tbl('orcamentos'), '?select=numero&order=numero.desc.nullslast&limit=1');
+    const maior = (r && r.length && r[0].numero) ? parseInt(r[0].numero, 10) : 0;
+    return (isNaN(maior) ? 0 : maior) + 1;
   } catch (e) {
-    return false;
+    return 1;
   }
 }
 
-function criarLinhaOrcamento(item, realIdx) {
+// ── Histórico de orçamentos (Supabase — sincroniza entre dispositivos) ──
+let _orcamentos = [];   // cache em memória, mais recentes primeiro
+let _orcTimer = null;
+
+// Carrega os orçamentos do banco e re-renderiza todas as listas
+async function carregarOrcamentos() {
+  try {
+    const lista = await AZ_DB.get(AZ_DB.tbl('orcamentos'),
+      '?select=id,cliente,data,numero,status,obs,total,nome_arquivo,created_at&order=created_at.desc.nullslast');
+    _orcamentos = lista || [];
+  } catch (e) {
+    console.error('Erro ao carregar orçamentos:', e);
+  }
+  renderTodasListas();
+}
+
+function criarLinhaOrcamento(item) {
   const row = document.createElement('div');
   row.className = 'item-row orc-hist-item';
   row.style.cursor = 'pointer';
+  const numFmt = item.numero ? '(Nº ' + formatarNumeroOrcamento(item.numero) + ') · ' : '';
   row.innerHTML = `
-    <div style="flex:1;min-width:0" onclick="abrirOrcamento(${realIdx})">
+    <div style="flex:1;min-width:0" onclick="abrirOrcamento('${item.id}')">
       <div class="item-name">${item.cliente}</div>
-      <div class="item-meta">${item.numero ? '(Nº ' + item.numero + ') · ' : ''}${item.data}</div>
+      <div class="item-meta">${numFmt}${item.data || ''}</div>
     </div>
     <div style="display:flex;align-items:center;gap:8px">
       <span style="font-size:12px;color:#6b7280;font-weight:500">Status</span>
-      <button class="orc-status-btn orc-status-check ${item.status === 'aprovado' ? 'is-aprovado' : ''}" onclick="event.stopPropagation();openConfirm('Marcar como aprovado?','O status deste orçamento será alterado.',()=>{definirStatusOrcamento(${realIdx},'aprovado')})" title="Aprovado">✓</button>
-      <button class="orc-status-btn orc-status-x ${item.status === 'recusado' ? 'is-recusado' : ''}" onclick="event.stopPropagation();openConfirm('Marcar como não aprovado?','O status deste orçamento será alterado.',()=>{definirStatusOrcamento(${realIdx},'recusado')})" title="Não aprovado">✕</button>
-      <button class="btn btn-outline btn-sm" onclick="abrirOrcamento(${realIdx})">↓ Abrir</button>
-      <button class="btn btn-danger-ghost btn-sm btn-icon" style="color:#1a1d2e" onclick="event.stopPropagation();openConfirm('Excluir orçamento?','Esta ação não pode ser desfeita.',()=>{excluirOrcamento(${realIdx})})">✕</button>
+      <button class="orc-status-btn orc-status-check ${item.status === 'aprovado' ? 'is-aprovado' : ''}" onclick="event.stopPropagation();openConfirm('Marcar como aprovado?','O status deste orçamento será alterado.',()=>{definirStatusOrcamento('${item.id}','aprovado')})" title="Aprovado">✓</button>
+      <button class="orc-status-btn orc-status-x ${item.status === 'recusado' ? 'is-recusado' : ''}" onclick="event.stopPropagation();openConfirm('Marcar como não aprovado?','O status deste orçamento será alterado.',()=>{definirStatusOrcamento('${item.id}','recusado')})" title="Não aprovado">✕</button>
+      <button class="btn btn-outline btn-sm" onclick="abrirOrcamento('${item.id}')">↓ Abrir</button>
+      <button class="btn btn-danger-ghost btn-sm btn-icon" style="color:#1a1d2e" onclick="event.stopPropagation();openConfirm('Excluir orçamento?','Esta ação não pode ser desfeita.',()=>{excluirOrcamento('${item.id}')})">✕</button>
     </div>`;
   return row;
 }
 
 function renderHistorico() {
-  const lista = loadHistorico();
   const container = document.getElementById('historicoList');
   const empty = document.getElementById('historicoEmpty');
-  if (!lista.length) {
-    empty.style.display = '';
-    return;
-  }
-  empty.style.display = 'none';
-  // Renderiza apenas os itens (mantém o empty-state no DOM)
   const items = container.querySelectorAll('.orc-hist-item');
   items.forEach(el => el.remove());
-  lista.slice().reverse().forEach((item, idx) => {
-    const realIdx = lista.length - 1 - idx;
-    container.appendChild(criarLinhaOrcamento(item, realIdx));
-  });
+  if (!_orcamentos.length) { empty.style.display = ''; return; }
+  empty.style.display = 'none';
+  _orcamentos.forEach(item => container.appendChild(criarLinhaOrcamento(item)));
 }
 
 function renderTodosOrcamentos() {
-  const lista = loadHistorico();
   const container = document.getElementById('todosList');
   const empty = document.getElementById('todosEmpty');
   const items = container.querySelectorAll('.orc-hist-item');
   items.forEach(el => el.remove());
-  if (!lista.length) {
-    empty.style.display = '';
-    return;
-  }
+  if (!_orcamentos.length) { empty.style.display = ''; return; }
   empty.style.display = 'none';
-  lista.slice().reverse().forEach((item, idx) => {
-    const realIdx = lista.length - 1 - idx;
-    container.appendChild(criarLinhaOrcamento(item, realIdx));
-  });
+  _orcamentos.forEach(item => container.appendChild(criarLinhaOrcamento(item)));
 }
 
 function renderListaPorStatus(status, containerId, emptyId) {
-  const lista = loadHistorico();
   const container = document.getElementById(containerId);
   const empty = document.getElementById(emptyId);
   const items = container.querySelectorAll('.orc-hist-item');
   items.forEach(el => el.remove());
 
-  const filtrados = [];
-  lista.forEach((item, realIdx) => {
-    if (item.status === status) filtrados.push({ item, realIdx });
-  });
-
-  if (!filtrados.length) {
-    empty.style.display = '';
-    return;
-  }
+  const filtrados = _orcamentos.filter(item => item.status === status);
+  if (!filtrados.length) { empty.style.display = ''; return; }
   empty.style.display = 'none';
-  filtrados.slice().reverse().forEach(({ item, realIdx }) => {
-    container.appendChild(criarLinhaOrcamento(item, realIdx));
-  });
+  filtrados.forEach(item => container.appendChild(criarLinhaOrcamento(item)));
 }
 
-function definirStatusOrcamento(idx, status) {
-  const lista = loadHistorico();
-  const item = lista[idx];
-  if (!item) return;
-  item.status = status;
-  saveHistorico(lista);
-  renderTodasListas();
+async function definirStatusOrcamento(id, status) {
+  try {
+    await AZ_DB.update(AZ_DB.tbl('orcamentos'), id, { status });
+    const item = _orcamentos.find(o => o.id === id);
+    if (item) item.status = status;
+    renderTodasListas();
+  } catch (e) {
+    showToast('Erro ao atualizar status: ' + e.message, 'error');
+  }
 }
 
 function renderTodasListas() {
@@ -711,59 +683,108 @@ function renderTodasListas() {
   renderListaPorStatus('recusado', 'recusadosList', 'recusadosEmpty');
 }
 
-function salvarNoHistorico(cliente, data, pdfBase64, nomeArquivo, numero) {
-  let lista = loadHistorico();
-  lista.push({ cliente, data, pdfBase64, nomeArquivo, numero, geradoEm: new Date().toISOString() });
-
-  let ok = saveHistorico(lista);
-  let removidos = 0;
-  // Se exceder a cota do navegador, remove os orçamentos mais antigos até caber
-  while (!ok && lista.length > 1) {
-    lista.shift(); // remove o mais antigo
-    removidos++;
-    ok = saveHistorico(lista);
-  }
-
-  renderTodasListas();
-
-  if (!ok) {
-    showToast('Não foi possível salvar no histórico: espaço do navegador esgotado. O PDF foi gerado, mas não ficará salvo aqui.', 'error');
-  } else if (removidos > 0) {
-    showToast('Espaço esgotado: ' + removidos + ' orçamento(s) mais antigo(s) removido(s) do histórico para liberar espaço.', 'error');
+async function salvarNoHistorico({ cliente, data, numero, obs, total, pdfBase64, nomeArquivo }) {
+  const registro = {
+    id: (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : 'orc_' + Date.now() + '_' + Math.random().toString(36).slice(2),
+    cliente,
+    data,
+    numero,
+    status: null,
+    obs: obs || null,
+    total: (typeof total === 'number' ? total : null),
+    pdf_base64: pdfBase64,
+    nome_arquivo: nomeArquivo,
+    created_at: Date.now()
+  };
+  try {
+    await AZ_DB.insert(AZ_DB.tbl('orcamentos'), registro);
+    await carregarOrcamentos();
+  } catch (e) {
+    showToast('PDF gerado, mas houve erro ao salvar no histórico: ' + e.message, 'error');
   }
 }
 
-function abrirOrcamento(idx) {
-  const lista = loadHistorico();
-  const item = lista[idx];
-  if (!item) return;
-  const blob = new Blob([Uint8Array.from(atob(item.pdfBase64), c => c.charCodeAt(0))], { type: 'application/pdf' });
-  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-  if (isIOS && navigator.share) {
-    const file = new File([blob], item.nomeArquivo, { type: 'application/pdf' });
-    if (navigator.canShare && navigator.canShare({ files: [file] })) {
-      navigator.share({ files: [file], title: item.nomeArquivo });
-      return;
+async function abrirOrcamento(id) {
+  try {
+    const r = await AZ_DB.get(AZ_DB.tbl('orcamentos'), '?id=eq.' + id + '&select=pdf_base64,nome_arquivo');
+    const item = r && r[0];
+    if (!item || !item.pdf_base64) { showToast('PDF não encontrado', 'error'); return; }
+    const nome = item.nome_arquivo || 'Orçamento.pdf';
+    const blob = new Blob([Uint8Array.from(atob(item.pdf_base64), c => c.charCodeAt(0))], { type: 'application/pdf' });
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    if (isIOS && navigator.share) {
+      const file = new File([blob], nome, { type: 'application/pdf' });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        navigator.share({ files: [file], title: nome });
+        return;
+      }
     }
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = nome;
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 100);
+  } catch (e) {
+    showToast('Erro ao abrir orçamento: ' + e.message, 'error');
   }
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url; a.download = item.nomeArquivo;
-  document.body.appendChild(a); a.click();
-  document.body.removeChild(a);
-  setTimeout(() => URL.revokeObjectURL(url), 100);
 }
 
-function excluirOrcamento(idx) {
-  const lista = loadHistorico();
-  lista.splice(idx, 1);
-  saveHistorico(lista);
-  renderTodasListas();
+async function excluirOrcamento(id) {
+  try {
+    await AZ_DB.remove(AZ_DB.tbl('orcamentos'), id);
+    _orcamentos = _orcamentos.filter(o => o.id !== id);
+    renderTodasListas();
+  } catch (e) {
+    showToast('Erro ao excluir: ' + e.message, 'error');
+  }
+}
+
+// ── Migração única do histórico antigo (localStorage -> banco) ──
+async function migrarHistoricoLocal() {
+  const FLAG = 'az_orcamentos_migrado';
+  if (localStorage.getItem(FLAG) === '1') return;
+  let antigos = [];
+  try { antigos = JSON.parse(localStorage.getItem('az_orcamentos_historico') || '[]'); } catch (e) { antigos = []; }
+  if (!antigos.length) { localStorage.setItem(FLAG, '1'); return; }
+  for (const it of antigos) {
+    try {
+      await AZ_DB.insert(AZ_DB.tbl('orcamentos'), {
+        id: (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : 'orc_' + Date.now() + '_' + Math.random().toString(36).slice(2),
+        cliente: it.cliente || 'Sem nome',
+        data: it.data || null,
+        numero: it.numero ? (parseInt(String(it.numero).replace(/\D/g, ''), 10) || null) : null,
+        status: it.status || null,
+        obs: null,
+        total: null,
+        pdf_base64: it.pdfBase64 || null,
+        nome_arquivo: it.nomeArquivo || null,
+        created_at: it.geradoEm ? new Date(it.geradoEm).getTime() : Date.now()
+      });
+    } catch (e) { /* ignora item que falhar e segue */ }
+  }
+  localStorage.setItem(FLAG, '1');
 }
 
 // Inicializar histórico
 navigateOrc('inicio');
-renderTodasListas();
+
+// Migra o histórico antigo (localStorage) para o banco e carrega tudo
+(async () => {
+  await migrarHistoricoLocal();
+  await carregarOrcamentos();
+})();
+
+// Atualização automática entre dispositivos (quase em tempo real):
+// recarrega ao voltar o foco / abrir a aba e a cada 15s enquanto visível.
+_orcTimer = setInterval(() => {
+  if (document.visibilityState === 'visible') carregarOrcamentos();
+}, 15000);
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') carregarOrcamentos();
+});
+window.addEventListener('focus', () => carregarOrcamentos());
+
 document.querySelectorAll('.overlay').forEach(o => {
   o.addEventListener('click', function(e) {
     if (e.target === this) this.classList.remove('open');
