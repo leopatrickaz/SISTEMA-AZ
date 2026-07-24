@@ -516,7 +516,11 @@ async function gerarOrcamentoPDF() {
     const ratio = canvas.height / canvas.width;
     const imgH  = pageW * ratio;
     pdf.addImage(imgData, 'JPEG', 0, 0, pageW, Math.min(imgH, pageH));
-    const dataNome = dataFmt.replace(/\//g, '.');
+    // No nome do arquivo o ano fica abreviado (2026 -> 26); nas telas permanece completo
+    const dpNome = dataFmt.split('/');
+    const dataNome = dpNome.length === 3
+      ? dpNome[0] + '.' + dpNome[1] + '.' + dpNome[2].slice(-2)
+      : dataFmt.replace(/\//g, '.');
     const nomeArquivo = 'Orçamento ' + cliente + ' - ' + dataNome + ' (Nº ' + numeroFmt + ').pdf';
     const pdfBlob = pdf.output('blob');
 
