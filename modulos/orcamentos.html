@@ -517,7 +517,7 @@ async function gerarOrcamentoPDF() {
     const imgH  = pageW * ratio;
     pdf.addImage(imgData, 'JPEG', 0, 0, pageW, Math.min(imgH, pageH));
     const dataNome = dataFmt.replace(/\//g, '.');
-    const nomeArquivo = 'Orçamento (' + numeroFmt + ') - ' + cliente + ' - ' + dataNome + '.pdf';
+    const nomeArquivo = 'Orçamento ' + cliente + ' - ' + dataNome + ' (' + numeroFmt + ').pdf';
     const pdfBlob = pdf.output('blob');
 
     // Salvar no histórico
