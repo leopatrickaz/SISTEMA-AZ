@@ -741,16 +741,29 @@ async function excluirOrcamento(id) {
 }
 
 // ── Migração única do histórico antigo (localStorage -> banco) ──
+// Usa ID determinístico por conteúdo: se a migração reiniciar (ex.: página
+// recarregada no meio do envio), reinserir o mesmo item gera conflito de
+// chave e é ignorado — nunca cria duplicatas.
 async function migrarHistoricoLocal() {
   const FLAG = 'az_orcamentos_migrado';
   if (localStorage.getItem(FLAG) === '1') return;
   let antigos = [];
   try { antigos = JSON.parse(localStorage.getItem('az_orcamentos_historico') || '[]'); } catch (e) { antigos = []; }
   if (!antigos.length) { localStorage.setItem(FLAG, '1'); return; }
-  for (const it of antigos) {
+
+  const idDeterministico = (it, i) => {
+    const base = [it.cliente, it.data, it.numero, it.geradoEm, it.nomeArquivo, i].join('|');
+    let h = 0;
+    for (let k = 0; k < base.length; k++) h = (h * 31 + base.charCodeAt(k)) | 0;
+    return 'mig_' + Math.abs(h).toString(36) + '_' + (it.numero || i);
+  };
+
+  let todosOk = true;
+  for (let i = 0; i < antigos.length; i++) {
+    const it = antigos[i];
     try {
       await AZ_DB.insert(AZ_DB.tbl('orcamentos'), {
-        id: (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : 'orc_' + Date.now() + '_' + Math.random().toString(36).slice(2),
+        id: idDeterministico(it, i),
         cliente: it.cliente || 'Sem nome',
         data: it.data || null,
         numero: it.numero ? (parseInt(String(it.numero).replace(/\D/g, ''), 10) || null) : null,
@@ -761,9 +774,13 @@ async function migrarHistoricoLocal() {
         nome_arquivo: it.nomeArquivo || null,
         created_at: it.geradoEm ? new Date(it.geradoEm).getTime() : Date.now()
       });
-    } catch (e) { /* ignora item que falhar e segue */ }
+    } catch (e) {
+      const msg = String((e && e.message) || '');
+      // Conflito de chave = item já migrado (esperado). Outros erros: tentar de novo depois.
+      if (!msg.includes('duplicate') && !msg.includes('23505') && !msg.includes('409')) todosOk = false;
+    }
   }
-  localStorage.setItem(FLAG, '1');
+  if (todosOk) localStorage.setItem(FLAG, '1');
 }
 
 // Inicializar histórico
