@@ -152,14 +152,20 @@ const MODULO_ICON_SVG = {
 };
 
 function moduloIconSvg(m, opts) {
-  const size = (opts && opts.size) || 20;
   const stroke = (opts && opts.stroke) || 'rgba(255,255,255,0.85)';
   const paths = MODULO_ICON_SVG[m.id] || '';
+  if (opts && opts.fluid) {
+    return `<svg viewBox="0 0 24 24" fill="none" stroke="${stroke}" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${paths}</svg>`;
+  }
+  const size = (opts && opts.size) || 20;
   return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="${stroke}" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${paths}</svg>`;
 }
 
 
 // ── Renderiza sidebar de módulos (lateral deslizante) ────────
+// Quando os módulos não couberem no espaço disponível, o tamanho de
+// cada item é reduzido automaticamente (em vez de aparecer barra de
+// rolagem) para que todos fiquem visíveis de uma vez.
 
 function renderSidebarModulos(moduloAtualId) {
   const containers = [
@@ -178,24 +184,49 @@ function renderSidebarModulos(moduloAtualId) {
       : '';
     return `
       <div
+        class="sb-mod-item"
         onclick="${m.ativo ? `window.location.href='${m.arquivo}'` : ''}"
         style="
-          display:flex;align-items:center;gap:12px;padding:12px;
-          border-radius:8px;cursor:${m.ativo ? 'pointer' : 'default'};
-          color:#fff;margin-bottom:4px;
+          cursor:${m.ativo ? 'pointer' : 'default'};
           background:${isAtual ? 'color-mix(in srgb, var(--sidebar-active) 35%, transparent)' : 'transparent'};
           opacity:${m.ativo ? '1' : '0.6'};
         "
       >
-        <span style="flex-shrink:0;display:flex">${moduloIconSvg(m)}</span>
+        <span class="sb-mod-icon">${moduloIconSvg(m, { fluid: true })}</span>
         <div style="flex:1;min-width:0">
-          <div style="font-weight:600;font-size:14px;display:flex;align-items:center">
+          <div class="sb-mod-name">
             ${esc(m.nome)}${badge}
           </div>
-          <div style="font-size:11px;color:rgba(255,255,255,0.5)">${esc(m.descricao)}</div>
+          <div class="sb-mod-desc">${esc(m.descricao)}</div>
         </div>
       </div>`;
   }).join('');
 
-  containers.forEach(c => c.innerHTML = html);
+  containers.forEach(c => {
+    c.innerHTML = html;
+    ajustarDensidadeSidebar(c);
+  });
 }
+
+// Reduz o tamanho dos itens da sidebar em etapas até todos caberem
+// sem precisar rolar (normal → sb-compact → sb-ultra).
+function ajustarDensidadeSidebar(container) {
+  container.classList.remove('sb-compact', 'sb-ultra');
+  if (container.scrollHeight <= container.clientHeight + 1) return;
+  container.classList.add('sb-compact');
+  if (container.scrollHeight <= container.clientHeight + 1) return;
+  container.classList.add('sb-ultra');
+}
+
+// Reavalia a densidade da sidebar ao redimensionar a janela
+// (ex.: girar tablet, redimensionar navegador).
+let _sbResizeTimer = null;
+window.addEventListener('resize', function () {
+  clearTimeout(_sbResizeTimer);
+  _sbResizeTimer = setTimeout(function () {
+    ['sidebarModulosList', 'sidebarModulosListDesktop'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) ajustarDensidadeSidebar(el);
+    });
+  }, 150);
+});

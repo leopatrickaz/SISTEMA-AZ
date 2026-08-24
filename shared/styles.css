@@ -60,11 +60,49 @@ body {
   height: 100vh;
 }
 
-/* A lista de módulos rola sozinha quando não couber (ex.: AZ Pesados,
-   que tem um módulo a mais); logo e rodapé (Trocar empresa / Sair)
-   ficam sempre fixos e visíveis, em qualquer módulo e empresa.
+/* A lista de módulos preenche o espaço entre a logo e o rodapé.
+   Quando os módulos não couberem, o tamanho deles é reduzido
+   automaticamente (classes sb-compact/sb-ultra, aplicadas via JS)
+   para que TODOS apareçam sem precisar rolar — logo e rodapé
+   (Trocar empresa / Sair) ficam sempre fixos e visíveis, em
+   qualquer módulo e em qualquer uma das empresas.
    (vendas.html usa o id "...Desktop" para a lista da sidebar fixa) */
-#sidebarModulosList, #sidebarModulosListDesktop { flex: 1; min-height: 0; overflow-y: auto; }
+#sidebarModulosList, #sidebarModulosListDesktop {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: none;
+  --sb-pad: 12px;
+  --sb-gap: 12px;
+  --sb-icon: 20px;
+  --sb-name: 14px;
+  --sb-desc: 11px;
+  --sb-desc-display: block;
+  --sb-mb: 4px;
+}
+#sidebarModulosList::-webkit-scrollbar, #sidebarModulosListDesktop::-webkit-scrollbar { display: none; }
+#sidebarModulosList.sb-compact, #sidebarModulosListDesktop.sb-compact {
+  --sb-pad: 8px;
+  --sb-gap: 10px;
+  --sb-icon: 17px;
+  --sb-name: 12.5px;
+  --sb-desc: 10px;
+  --sb-mb: 2px;
+}
+#sidebarModulosList.sb-ultra, #sidebarModulosListDesktop.sb-ultra {
+  --sb-pad: 6px 8px;
+  --sb-gap: 8px;
+  --sb-icon: 15px;
+  --sb-name: 11.5px;
+  --sb-desc-display: none;
+  --sb-mb: 0px;
+}
+
+.sb-mod-item  { display: flex; align-items: center; gap: var(--sb-gap); padding: var(--sb-pad); border-radius: 8px; color: #fff; margin-bottom: var(--sb-mb); }
+.sb-mod-icon  { flex-shrink: 0; display: flex; width: var(--sb-icon); height: var(--sb-icon); }
+.sb-mod-icon svg { width: 100%; height: 100%; }
+.sb-mod-name  { font-weight: 600; font-size: var(--sb-name); display: flex; align-items: center; }
+.sb-mod-desc  { font-size: var(--sb-desc); color: rgba(255,255,255,0.5); display: var(--sb-desc-display); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 .sidebar-logo    { display: flex; align-items: center; gap: 10px; padding: 12px 8px 20px; margin-bottom: 8px; }
 .logo-icon       { width: 40px; height: 40px; background: var(--sidebar-active); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
