@@ -11,6 +11,21 @@
   <link rel="stylesheet" href="/shared/styles.css" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <style>
+    .orc-caps-btn {
+      width: 30px; height: 30px; flex-shrink: 0;
+      border: 1px solid var(--border); border-radius: 6px; background: #fff;
+      color: var(--muted); font-size: 13px; font-weight: 700; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: all 0.15s; opacity: 0.55; padding: 0;
+    }
+    .orc-caps-btn:hover { opacity: 1; }
+    .orc-caps-btn.active {
+      background: var(--primary-light); border-color: var(--primary);
+      color: var(--primary); opacity: 0.85;
+    }
+    .orc-caps-btn.active:hover { opacity: 1; }
+  </style>
 </head>
 <body>
 
@@ -207,9 +222,12 @@
         </div>
       </div>
 
-      <div class="form-actions">
-        <button class="btn btn-ghost" onclick="closeOrcamentoModal()">Cancelar</button>
-        <button class="btn btn-primary" onclick="gerarOrcamentoPDF()">Gerar PDF</button>
+      <div class="form-actions" style="justify-content:space-between;align-items:center">
+        <button type="button" id="orcCapsToggle" class="orc-caps-btn" onclick="toggleOrcCaps()" title="Maiúscula automática ativada — clique para desativar">A</button>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-ghost" onclick="closeOrcamentoModal()">Cancelar</button>
+          <button class="btn btn-primary" onclick="gerarOrcamentoPDF()">Gerar PDF</button>
+        </div>
       </div>
 
     </div>
@@ -320,6 +338,56 @@ function criarAutoComplete(input, getSugestoes, onSelecionar) {
   });
 }
 
+// ── Maiúscula automática no formulário/orçamento ─────────────
+const ORC_CAPS_KEY = 'az_orc_caps_ativo';
+let orcCapsAtivo = localStorage.getItem(ORC_CAPS_KEY) !== '0';
+
+function aplicarMaiuscula(el) {
+  if (!orcCapsAtivo || !el) return;
+  const start = el.selectionStart, end = el.selectionEnd;
+  const upper = el.value.toUpperCase();
+  if (upper === el.value) return;
+  el.value = upper;
+  if (start !== null && start !== undefined) {
+    try { el.setSelectionRange(start, end); } catch (_) {}
+  }
+}
+
+function atualizarOrcCapsBtn() {
+  const btn = document.getElementById('orcCapsToggle');
+  if (!btn) return;
+  btn.classList.toggle('active', orcCapsAtivo);
+  btn.title = orcCapsAtivo
+    ? 'Maiúscula automática ativada — clique para desativar'
+    : 'Maiúscula automática desativada — clique para ativar';
+}
+
+function toggleOrcCaps() {
+  if (orcCapsAtivo) {
+    openConfirm(
+      'Desativar maiúscula automática?',
+      'Os textos digitados neste orçamento (cliente, itens e observações) vão parar de ser convertidos automaticamente para maiúsculas. Tem certeza que deseja desativar?',
+      () => {
+        orcCapsAtivo = false;
+        localStorage.setItem(ORC_CAPS_KEY, '0');
+        atualizarOrcCapsBtn();
+      }
+    );
+  } else {
+    orcCapsAtivo = true;
+    localStorage.setItem(ORC_CAPS_KEY, '1');
+    atualizarOrcCapsBtn();
+  }
+}
+
+// Converte para maiúsculas enquanto o usuário digita nos campos de texto do orçamento
+document.getElementById('orcamentoOverlay').addEventListener('input', function (e) {
+  const el = e.target;
+  if (el.id === 'orcCliente' || el.id === 'orcObs' || (el.id && el.id.startsWith('orc-desc-'))) {
+    aplicarMaiuscula(el);
+  }
+});
+
 // ── Modal Orçamento ──────────────────────────────────────────
 let _orcItemCount = 0;
 
@@ -334,12 +402,13 @@ async function openOrcamentoModal() {
   document.getElementById('orcObs').value = '';
   document.getElementById('orcTotal').value = '';
   document.getElementById('orcItens').innerHTML = '';
+  atualizarOrcCapsBtn();
 
   // Autocomplete de clientes
   criarAutoComplete(
     clienteInput,
     q => q ? _clientes.filter(c => c.toLowerCase().includes(q)) : _clientes,
-    nome => { clienteInput.value = nome; }
+    nome => { clienteInput.value = nome; aplicarMaiuscula(clienteInput); }
   );
 
   addOrcItem();
@@ -372,6 +441,7 @@ function addOrcItem() {
     q => q ? _produtos.filter(p => p.nome.toLowerCase().includes(q)) : _produtos,
     p => {
       descInput.value = p.nome;
+      aplicarMaiuscula(descInput);
       calcOrcTotal();
     }
   );
