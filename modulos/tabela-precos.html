@@ -301,8 +301,8 @@ async function gerarTabelaPrecosPDF() {
   if (!itens.length) { showToast('Adicione pelo menos um item', 'error'); return; }
 
   // Numeração sequencial global (via banco), reservada agora e salva junto com a tabela
+  // (usada no histórico da tela, não aparece mais no título do PDF)
   const numero = await proximoNumeroTabela();
-  const numeroFmt = formatarNumeroTabela(numero);
 
   // Linhas em flexbox (não <table>) para evitar uma inconsistência de
   // arredondamento do html2canvas que deixava a última linha ~1px mais baixa.
@@ -391,7 +391,7 @@ async function gerarTabelaPrecosPDF() {
     const dataNome = dpNome.length === 3
       ? dpNome[0] + '.' + dpNome[1] + '.' + dpNome[2].slice(-2)
       : dataFmt.replace(/\//g, '.');
-    const nomeArquivo = 'Tabela de Preços ' + empresa + ' - ' + dataNome + ' (Nº ' + numeroFmt + ').pdf';
+    const nomeArquivo = 'Tabela de Preços ' + empresa + ' - ' + dataNome + '.pdf';
     const pdfBlob = pdf.output('blob');
 
     // Salvar no histórico
