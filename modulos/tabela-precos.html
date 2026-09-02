@@ -305,7 +305,7 @@ async function gerarTabelaPrecosPDF() {
   const numeroFmt = formatarNumeroTabela(numero);
 
   let rows = '';
-  for (let i = 0; i < 12; i++) {
+  for (let i = 0; i < 10; i++) {
     const it = itens[i] || null;
     const bg = i % 2 === 0 ? '#f3f4f6' : '#ffffff';
     rows += '<tr style="background:' + bg + ';-webkit-print-color-adjust:exact">'
@@ -319,16 +319,9 @@ async function gerarTabelaPrecosPDF() {
   div.id = 'tp-render';
   div.style.cssText = 'position:fixed;left:-9999px;top:0;width:794px;background:#f0f0f0;font-family:Arial,sans-serif;color:#1a1a1a;font-size:16px;-webkit-text-size-adjust:none;text-size-adjust:none';
 
-  const campo = (val, w) =>
-    '<div style="display:inline-block;width:' + w + 'px;height:20px;position:relative;vertical-align:bottom">'
-  + '<div style="position:absolute;bottom:3px;left:0;right:0;border-bottom:1.5px solid #444"></div>'
-  + '<div style="position:absolute;bottom:1px;left:2px;right:2px;font-size:12.5px;line-height:20px;height:20px;overflow:hidden;white-space:nowrap">' + (val || '') + '</div>'
-  + '</div>';
-
   div.innerHTML =
     '<div style="position:relative;background-color:#262626;padding:8px 0;text-align:center;-webkit-print-color-adjust:exact">'
   + '<span style="color:#fff;font-size:16px;font-weight:700;letter-spacing:3px">TABELA DE PREÇOS</span>'
-  + '<span style="position:absolute;right:14px;top:0;bottom:0;display:flex;align-items:center;color:#9a9a9a;font-size:10px;font-weight:400;letter-spacing:1px">Nº ' + numeroFmt + '</span>'
   + '</div>'
   + '<div style="background:#fff;padding:28px 32px 32px">'
   + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;padding-bottom:12px;border-bottom:2px solid #ccc">'
@@ -344,14 +337,6 @@ async function gerarTabelaPrecosPDF() {
   + '</div>'
   + '<div style="width:220px;display:flex;justify-content:center;align-items:center;flex-shrink:0;padding-right:60px">'
   + '<img src="' + LOGO_DATA + '" style="width:160px;height:auto" crossorigin="anonymous"/>'
-  + '</div>'
-  + '</div>'
-  + '<div style="display:flex;align-items:flex-end;margin-bottom:22px">'
-  + '<div style="display:flex;align-items:flex-end;gap:3px;flex:1">'
-  + '<span style="font-weight:700;font-size:12.5px;line-height:1;padding-bottom:4px">EMPRESA:</span>' + campo(empresa, 300)
-  + '</div>'
-  + '<div style="display:flex;align-items:flex-end;gap:3px;width:170px;flex-shrink:0">'
-  + '<span style="font-weight:700;font-size:12.5px;line-height:1;padding-bottom:4px">DATA:</span>' + campo(dataFmt, 100)
   + '</div>'
   + '</div>'
   + '<table style="width:100%;border-collapse:collapse;margin-bottom:22px;border-spacing:0">'
