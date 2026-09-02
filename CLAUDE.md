@@ -50,7 +50,7 @@ auto-refresh (alerta sonoro + monitoramento em segundo plano) e não usa
 ## Estado dos módulos
 
 - **Ativos com dados (Supabase + sync):** `vendas`, `orcamentos`,
-  `solicitacoes-orcamento`.
+  `solicitacoes-orcamento`, `tabela-precos`.
 - **Placeholders "em breve" (sem dados ainda):** `clientes`, `estoque`,
   `financeiro`, `garantias`, `relatorios`. Já incluem `sync.js`; ao serem
   implementados de verdade, seguir a convenção acima.

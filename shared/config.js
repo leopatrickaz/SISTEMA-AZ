@@ -31,6 +31,15 @@ const AZ_CONFIG = {
       ativo: true
     },
     {
+      id: 'tabela-precos',
+      nome: 'Tabela de Preços',
+      descricao: 'Gerar tabela de preços em PDF',
+      icone: '💲',
+      cor: '#e0f2e9',
+      arquivo: '/modulos/tabela-precos.html',
+      ativo: true
+    },
+    {
       id: 'estoque',
       nome: 'Estoque',
       descricao: 'Controle de estoque e peças',

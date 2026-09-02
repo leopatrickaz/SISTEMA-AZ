@@ -143,6 +143,7 @@ function applyEmpresaBranding(tituloPagina) {
 const MODULO_ICON_SVG = {
   vendas: '<path d="M6 2h12v19l-3-2-3 2-3-2-3 2V2z"/><line x1="9" y1="7" x2="15" y2="7"/><line x1="9" y1="11" x2="15" y2="11"/>',
   orcamentos: '<rect x="6" y="4" width="12" height="17" rx="2"/><path d="M9 4V3a1 1 0 011-1h4a1 1 0 011 1v1"/><line x1="9" y1="10" x2="15" y2="10"/><line x1="9" y1="14" x2="15" y2="14"/><line x1="9" y1="18" x2="13" y2="18"/>',
+  'tabela-precos': '<path d="M12 2h7a2 2 0 012 2v7a2 2 0 01-.59 1.41l-8 8a2 2 0 01-2.82 0l-7-7a2 2 0 010-2.82l8-8A2 2 0 0112 2z"/><circle cx="16.5" cy="7.5" r="1.5"/>',
   estoque: '<path d="M12 2 3 7v10l9 5 9-5V7l-9-5z"/><path d="M3 7l9 5 9-5"/><path d="M12 12v9"/>',
   financeiro: '<rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18"/><circle cx="16" cy="14.5" r="1.4"/>',
   clientes: '<circle cx="9" cy="8" r="3.2"/><path d="M2.5 20c0-3.4 3-6 6.5-6s6.5 2.6 6.5 6"/><circle cx="17" cy="9" r="2.4"/><path d="M17 13.2c2.6 0 4.8 1.9 4.8 5.3"/>',
