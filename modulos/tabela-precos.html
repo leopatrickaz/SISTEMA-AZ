@@ -311,7 +311,7 @@ async function gerarTabelaPrecosPDF() {
   for (let i = 0; i < totalLinhas; i++) {
     const it = itens[i] || null;
     rows += '<div style="display:flex;background:#ffffff;border-top:1px solid #d1d5db;-webkit-print-color-adjust:exact">'
-      + '<div style="flex:1;padding:9px 14px;font-size:13px;text-align:center">' + (it ? it.desc : '&nbsp;') + '</div>'
+      + '<div style="flex:1;padding:9px 14px;font-size:13px;text-align:left">' + (it ? it.desc : '&nbsp;') + '</div>'
       + '<div style="width:150px;flex-shrink:0;padding:9px 14px;font-size:13px;text-align:center;border-left:1px solid #d1d5db">' + (it ? brl2(it.val) : '&nbsp;') + '</div>'
       + '</div>';
   }
