@@ -304,14 +304,15 @@ async function gerarTabelaPrecosPDF() {
   const numero = await proximoNumeroTabela();
   const numeroFmt = formatarNumeroTabela(numero);
 
+  // Linhas em flexbox (não <table>) para evitar uma inconsistência de
+  // arredondamento do html2canvas que deixava a última linha ~1px mais baixa.
   let rows = '';
   for (let i = 0; i < 10; i++) {
     const it = itens[i] || null;
-    const bg = '#ffffff';
-    rows += '<tr style="background:' + bg + ';-webkit-print-color-adjust:exact">'
-      + '<td style="padding:9px 14px;font-size:13px;border:1px solid #d1d5db;text-align:center">' + (it ? it.desc : '&nbsp;') + '</td>'
-      + '<td style="padding:9px 14px;font-size:13px;text-align:center;border:1px solid #d1d5db;width:150px">' + (it ? brl2(it.val) : '&nbsp;') + '</td>'
-      + '</tr>';
+    rows += '<div style="display:flex;background:#ffffff;border-top:1px solid #d1d5db;-webkit-print-color-adjust:exact">'
+      + '<div style="flex:1;padding:9px 14px;font-size:13px;text-align:center">' + (it ? it.desc : '&nbsp;') + '</div>'
+      + '<div style="width:150px;flex-shrink:0;padding:9px 14px;font-size:13px;text-align:center;border-left:1px solid #d1d5db">' + (it ? brl2(it.val) : '&nbsp;') + '</div>'
+      + '</div>';
   }
 
   // Monta o HTML da tabela de preços em div oculto para captura
@@ -342,12 +343,13 @@ async function gerarTabelaPrecosPDF() {
   + '<div style="margin-top:26px;text-align:center;background:#f6f7f9;border:1px solid #d1d5db;border-bottom:1px solid #262626;border-radius:12px 12px 0 0;padding:16px 20px;-webkit-print-color-adjust:exact">'
   + '<div style="font-size:19px;font-weight:700;color:#1a1a1a">' + esc(empresa) + '</div>'
   + '</div>'
-  + '<table style="width:100%;border-collapse:collapse;margin-bottom:22px;border-spacing:0">'
-  + '<thead>'
-  + '<tr style="background-color:#262626;border:none">'
-  + '<th style="background-color:#262626;padding:4px 14px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;text-align:center;color:#fff;border:none;margin:0">DESCRIÇÃO</th>'
-  + '<th style="background-color:#262626;padding:4px 14px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;text-align:center;color:#fff;border:none;margin:0;width:150px">VALOR (R$)</th>'
-  + '</tr></thead><tbody>' + rows + '</tbody></table>'
+  + '<div style="width:100%;margin-bottom:22px;border-left:1px solid #d1d5db;border-right:1px solid #d1d5db;border-bottom:1px solid #d1d5db">'
+  + '<div style="display:flex;background-color:#262626;-webkit-print-color-adjust:exact">'
+  + '<div style="flex:1;padding:4px 14px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;text-align:center;color:#fff">DESCRIÇÃO</div>'
+  + '<div style="width:150px;flex-shrink:0;padding:4px 14px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;text-align:center;color:#fff">VALOR (R$)</div>'
+  + '</div>'
+  + rows
+  + '</div>'
   + '</div>';
 
   document.body.appendChild(div);
